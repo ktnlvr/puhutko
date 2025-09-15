@@ -252,10 +252,10 @@ async def on_callback(call: CallbackQuery):
 PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", None)
 
 if PUBLIC_DOMAIN:
+    app = FastAPI()
+
     WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
     WEBHOOK_URL = f"https://{PUBLIC_DOMAIN}{WEBHOOK_PATH}"
-
-    app = FastAPI()
 
     @app.post(WEBHOOK_PATH)
     async def telegram_webhook(req: Request):
@@ -265,3 +265,15 @@ if PUBLIC_DOMAIN:
         return {"ok": True}
 
     asyncio.run(BOT.set_webhook(WEBHOOK_URL))
+
+else:
+
+    async def main():
+        try:
+            print("Bot started. Polling...")
+            await dp.start_polling(BOT)
+        finally:
+            await BOT.session.close()
+
+    if __name__ == "__main__":
+        asyncio.run(main())
