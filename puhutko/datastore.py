@@ -100,6 +100,23 @@ class Datastore:
         val = await self.redis.get(key)
         return val == 1
 
+    async def log_event(
+        self,
+        user: int,
+        event: str,
+        card_id: int | None = None,
+        extra: dict | None = None,
+    ):
+        key = f"user:{user}:events"
+        fields = {"timestamp": datetime.now().isoformat(), "event": event}
+        if card_id is not None:
+            fields["card_id"] = str(card_id)
+        if extra:
+            for k, v in extra.items():
+                fields[k] = str(v)
+
+        await self.redis.xadd(name=key, fields=fields, maxlen=10000, approximate=True)  # type: ignore
+
     async def stats(self, user: int) -> CardStats:
         pattern = f"{user}:card:*"
         keys = await self.redis.keys(pattern)

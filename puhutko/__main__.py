@@ -22,7 +22,6 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", ":c")
 DATASTORE = Datastore(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
-SKIP_DELAY = timedelta(seconds=30)
 
 BOT = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 
@@ -33,9 +32,6 @@ def main_review_kb(card_id: int, due_ts: int) -> InlineKeyboardMarkup:
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(
-                    text="Skip", callback_data=f"skip:{card_id}:{due_ts}"
-                ),
                 InlineKeyboardButton(
                     text="Flip", callback_data=f"flip:{card_id}:{due_ts}"
                 ),
@@ -70,6 +66,9 @@ async def cmd_cram(message: Message):
     new_state = not enabled
     await DATASTORE.set_cram_mode(user, new_state)
     status = "enabled" if new_state else "disabled"
+
+    await DATASTORE.log_event(user=user, event="cram", extra={"status": status})
+
     await message.answer(
         f"Cram mode is now <b>{status}</b>. Cards will {'ignore scheduling' if new_state else 'follow normal intervals'} during review."
     )
@@ -114,9 +113,12 @@ async def cmd_start(message: Message):
 
     card_id, due_ts = popped
     card = await DATASTORE.get_card(user, card_id)
+
     if not card:
         await message.answer("Card not found (it may have been deleted).")
         return
+
+    await DATASTORE.log_event(user=user, event="show_card", card_id=card.card_id)
 
     text = f"{card.front}"
     kb = main_review_kb(card.card_id, due_ts)
@@ -159,37 +161,6 @@ async def on_callback(call: CallbackQuery):
         return
 
     action = parts[0]
-    if action == "skip":
-        try:
-            card_id = int(parts[1])
-            due_ts = int(parts[2])
-        except Exception:
-            await call.answer("Invalid skip parameters", show_alert=True)
-            return
-
-        # schedule it a little later so it won't reappear immediately
-        original_due = datetime.fromtimestamp(due_ts)
-        next_due = max(original_due, datetime.now()) + SKIP_DELAY
-        await DATASTORE.reschedule_card(user, card_id, next_due)
-
-        await call.answer("Skipped - card put back into the queue.")
-        try:
-            await call.message.edit_reply_markup(None)  # type: ignore
-        except Exception:
-            pass
-
-        next_entry = await DATASTORE.pop_one_due(user)
-        if next_entry:
-            next_card_id, next_due_ts = next_entry
-            next_card = await DATASTORE.get_card(user, next_card_id)
-            if next_card:
-                kb = main_review_kb(next_card.card_id, next_due_ts)
-                await call.message.answer(next_card.front, reply_markup=kb)  # type: ignore
-        else:
-            await call.message.answer(  # type: ignore
-                "No more cards due right now. Add more with `front\\n\\nback`."
-            )
-        return
 
     if action == "flip":
         try:
@@ -202,6 +173,8 @@ async def on_callback(call: CallbackQuery):
         if not card:
             await call.answer("Card disappeared", show_alert=True)
             return
+
+        await DATASTORE.log_event(user=user, event="flip_card", card_id=card.card_id)
 
         new_text = f"{card.front}\n\n{card.back}"
         kb = grading_kb(card)
@@ -225,6 +198,17 @@ async def on_callback(call: CallbackQuery):
         if not card:
             await call.answer("Card not found", show_alert=True)
             return
+
+        await DATASTORE.log_event(
+            user=user,
+            event="grade_card",
+            card_id=card.card_id,
+            extra={
+                "quality": q,
+                "interval_days": card.interval,
+                "ease_factor": card.ease_factor,
+            },
+        )
 
         new_interval_days, new_ef, new_reps = sm2_next(card, q)
         card.interval = int(new_interval_days)
