@@ -13,6 +13,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.filters import Command
 from aiogram import Bot, Dispatcher
 
+from .whitelist import WhitelistFilter
 from .format import relative_time
 from .score import sm2_next
 from .card import Card
@@ -26,6 +27,10 @@ DATASTORE = Datastore(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
 BOT = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 
 dp = Dispatcher()
+
+filter = WhitelistFilter()
+dp.message.filter(filter)
+dp.callback_query.filter(filter)
 
 
 def main_review_kb(card_id: int, due_ts: int) -> InlineKeyboardMarkup:
