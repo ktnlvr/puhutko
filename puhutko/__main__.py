@@ -144,7 +144,7 @@ async def on_message_create_card(message: Message):
         )
         return
 
-    front, back = text.split("\n\n", 1)
+    front, back = text.split("\n", 1)
     front = front.strip()
     back = back.strip()
     if not front or not back:
