@@ -5,6 +5,8 @@ from redis import asyncio as aioredis
 
 from .card import Card
 
+MAX_EVENT_LENGHT = 100000
+
 
 class CardStats(BaseModel):
     num_cards: int
@@ -107,7 +109,7 @@ class Datastore:
         card_id: int | None = None,
         extra: dict | None = None,
     ):
-        key = f"user:{user}:events"
+        key = f"{user}:user:events"
         fields = {"timestamp": datetime.now().isoformat(), "event": event}
         if card_id is not None:
             fields["card_id"] = str(card_id)
@@ -115,7 +117,7 @@ class Datastore:
             for k, v in extra.items():
                 fields[k] = str(v)
 
-        await self.redis.xadd(name=key, fields=fields, maxlen=10000, approximate=True)  # type: ignore
+        await self.redis.xadd(name=key, fields=fields, maxlen=MAX_EVENT_LENGHT, approximate=True)  # type: ignore
 
     async def stats(self, user: int) -> CardStats:
         pattern = f"{user}:card:*"
