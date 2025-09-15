@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 import os
 import asyncio
@@ -252,7 +253,19 @@ async def on_callback(call: CallbackQuery):
 PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", None)
 
 if PUBLIC_DOMAIN:
-    app = FastAPI()
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        await BOT.set_webhook(WEBHOOK_URL)
+        print(f"Webhook set: {WEBHOOK_URL}")
+        try:
+            yield
+        finally:
+            await BOT.delete_webhook()
+            await BOT.session.close()
+            print("Webhook deleted and bot session closed")
+
+    app = FastAPI(lifespan=lifespan)
 
     WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
     WEBHOOK_URL = f"https://{PUBLIC_DOMAIN}{WEBHOOK_PATH}"
@@ -263,8 +276,6 @@ if PUBLIC_DOMAIN:
         update = Update(**data)
         await dp.feed_update(BOT, update)
         return {"ok": True}
-
-    asyncio.run(BOT.set_webhook(WEBHOOK_URL))
 
 else:
 
