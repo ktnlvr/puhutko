@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from openai import BaseModel
+from pydantic import BaseModel
 from redis import asyncio as aioredis
 
 from .card import Card
