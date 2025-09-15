@@ -133,9 +133,9 @@ async def on_message_create_card(message: Message):
     if not text:
         return
 
-    if "\n\n" not in text:
+    if "\n" not in text:
         await message.reply(
-            "To add a card send: `front\\n\\nback` (two newlines between front and back)."
+            "To add a card send: `front\\nback` (a newline between front and back)."
         )
         return
 
@@ -186,7 +186,6 @@ async def on_callback(call: CallbackQuery):
         return
 
     if action == "grade":
-        # data = grade:card_id:q
         try:
             card_id = int(parts[1])
             q = int(parts[2])
@@ -219,7 +218,7 @@ async def on_callback(call: CallbackQuery):
         next_due = datetime.now() + timedelta(days=new_interval_days)
         await DATASTORE.save_card(user, card, next_due=next_due)
 
-        final_text = f"{card.front}\n\n{card.back}\n\n<strong>Scheduled: {relative_time(next_due)}</strong>"
+        final_text = f"{card.front}\n{card.back}\n\n<strong>Scheduled: {relative_time(next_due)}</strong>"
         try:
             await call.message.edit_text(final_text, reply_markup=None)  # type: ignore
         except Exception:
