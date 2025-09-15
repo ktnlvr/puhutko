@@ -115,7 +115,7 @@ async def cmd_start(message: Message):
     popped = await DATASTORE.pop_one_due(user, cram=cram)
     if not popped:
         await message.answer(
-            "No cards are due for review. Add some with `front\\n\\nback` messages."
+            "No cards are due for review. Add some with `front\\nback` messages."
         )
         return
 
